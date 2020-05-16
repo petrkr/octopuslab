@@ -1,7 +1,7 @@
 from collections import deque
 import time
 
-from bluetooth import BLE
+from bluetooth import BLE, UUID
 import machine
 from micropython import const, schedule
 
@@ -212,16 +212,23 @@ def gattc_discover_services(conn_handle, timeout_ms=None):
     start_time = time.ticks_ms()
     _register_event(_IRQ_GATTC_SERVICE_RESULT, conn_handle, bufferlen=100)
     _ble.gattc_discover_services(conn_handle)
+    servicesList = list()
 
     event_queue = _events[_IRQ_GATTC_SERVICE_RESULT][conn_handle]
-    while True:
-        while event_queue:
+    while start_time + 2000 > time.ticks_ms():
+        if event_queue:
             start_handle, end_handle, uuid = event_queue.popleft()
-            yield start_handle, end_handle, uuid
-            if end_handle == 65535:
-                return
-        _maybe_raise_timeout(timeout_ms, start_time)
-        machine.idle()
+            servicesList.append((start_handle, end_handle, UUID(uuid)))
+
+    return servicesList
+#    while True:
+#        while event_queue:
+#            start_handle, end_handle, uuid = event_queue.popleft()
+#            yield start_handle, end_handle, uuid
+#            if end_handle == 65535:
+#                return
+#        _maybe_raise_timeout(timeout_ms, start_time)
+#        machine.idle()
 
 
 def gattc_discover_characteristics(
