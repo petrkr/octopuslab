@@ -156,12 +156,15 @@ class BLEClient:
         for start_handle, end_handle, uuid in blesync.gattc_discover_services(
             conn_handle
         ):
+            print("Start for class {}, {}, {}".format(start_handle, end_handle, uuid))
             for service_class in self._service_classes:
                 try:
+                    print ("service: {}".format(service_class))
                     service = service_class(uuid, conn_handle, start_handle, end_handle)
                 except ValueError:
                     continue
                 else:
+                    print("service setdefault")
                     self._services.setdefault(conn_handle, []).append(service)
                     ret.setdefault(service_class, []).append(service)
         return ret
@@ -178,12 +181,14 @@ class BLEClient:
 
 class Characteristic:
     def __init__(self, uuid):  # TODO flags
+        print("init chracteristic")
         self.uuid = uuid
         self._value_handles = {}
         self.connected_characteristic = None
         self._on_message_callback = lambda *_: None
 
     def __get__(self, service, owner=None):
+        print("get characteristic {}".format(service))
         return ConnectedCharacteristic(
             service.conn_handle,
             self._value_handles[service]
@@ -192,6 +197,7 @@ class Characteristic:
     def register(self, uuid, service, value_handle):
         if uuid != self.uuid:
             raise ValueError
+        print("register {}, {}, {}".format(uuid, service, value_handle))
         self._value_handles[service] = value_handle
 
     def __delete__(self, service):
@@ -225,7 +231,9 @@ class Service:
 
     @classmethod
     def _get_characteristics(cls):
+        print("service get char")
         for name in dir(cls):
+            print ("get char name: {}".format(name))
             attr = getattr(cls, name)
             if isinstance(attr, Characteristic):
                 yield attr
@@ -233,18 +241,24 @@ class Service:
     def __init__(self, uuid, conn_handle, start_handle, end_handle):
         if uuid != self.uuid:
             raise ValueError
+        print("init service")
         characteristics = list(self._get_characteristics())
+        print("got chars: {}".format(characteristics))
         self._characteristics = {}
         self.conn_handle = conn_handle
         for def_handle, value_handle, properties, uuid in blesync.gattc_discover_characteristics(
             conn_handle, start_handle, end_handle
         ):
+            print("char: {} {} {} {}".format(def_handle, value_handle, properties, uuid))
             for characteristic in characteristics:  # TODO enumerate
                 try:
+                    print("charinit: trying register")
                     characteristic.register(uuid, self, value_handle)
                 except ValueError:
+                    print("charinit: except")
                     continue
                 else:
+                    print("charinit: else")
                     self._characteristics[value_handle] = characteristic
                     if len(self._characteristics) == len(characteristics):
                         return

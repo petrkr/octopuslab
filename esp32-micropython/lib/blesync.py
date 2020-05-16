@@ -27,6 +27,7 @@ def _register_callback(irq, callback):
 
 
 def _event(irq, data, key):
+    print("calling event with data: {}, {}, {}".format(irq, data, key))
     _events[irq][key].append(data)
 
 
@@ -77,6 +78,7 @@ _callbacks = {
 
 
 def _irq(event, data):
+    print("blesync IRQ: {}, {}".format(event, data))
     if event in (
         _IRQ_CENTRAL_CONNECT,
         _IRQ_CENTRAL_DISCONNECT,
@@ -228,23 +230,32 @@ def gattc_discover_characteristics(
     end_handle,
     timeout_ms=None
 ):
+    print("blesync: gattc_discover_characteristics")
     start_time = time.ticks_ms()
     _register_event(
         _IRQ_GATTC_CHARACTERISTIC_RESULT,
         (conn_handle, start_handle, end_handle),
         bufferlen=100
     )
+    print("blesync: start discover")
     _ble.gattc_discover_characteristics(conn_handle, start_handle, end_handle)
     event_queue = _events[_IRQ_GATTC_CHARACTERISTIC_RESULT][
         (conn_handle, start_handle, end_handle)
     ]
     while True:
+        print("blesync: while true")
         while event_queue:
+            print("blesync: while queue")
             def_handle, value_handle, properties, uuid = event_queue.popleft()
             yield def_handle, value_handle, properties, uuid
+
+            print("blesync: after yield")
             if value_handle == end_handle:
                 return
+        print("blesync: timeoit?")
         _maybe_raise_timeout(timeout_ms, start_time)
+
+        print("blesync: idle")
         machine.idle()
 
 
